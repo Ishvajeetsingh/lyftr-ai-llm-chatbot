@@ -118,11 +118,10 @@ def execute_chat(
         # 2. Attempt real LiteLLM call with intelligent model fallback for deprecated/congested models
         candidate_models = [model]
         if "gemini" in model:
-            for fallback_m in ["gemini/gemini-flash-lite-latest", "gemini/gemini-3.8-flash"]:
+            for fallback_m in ["gemini/gemini-flash-lite-latest", "gemini/gemini-3.8-flash", "gemini/gemini-flash-latest"]:
                 if fallback_m not in candidate_models:
                     candidate_models.append(fallback_m)
 
-        key_succeeded = False
         for current_model in candidate_models:
             try:
                 call_start = time.perf_counter()
@@ -130,7 +129,8 @@ def execute_chat(
                     model=current_model,
                     messages=messages,
                     api_key=key,
-                    timeout=15,
+                    timeout=20,
+                    num_retries=0,
                     caching=True,
                 )
 
@@ -205,11 +205,10 @@ def execute_chat(
                 return reply, metadata
 
             except Exception as exc:
-                exc_str = str(exc).lower()
-                # If deprecated or capacity issue on this specific model, try next candidate model first
-                if any(phrase in exc_str for phrase in ("no longer available", "not found", "503", "high demand", "temporarily")):
-                    continue
-                break
+                logger.warning(
+                    "Model %s failed with key %s: %s", current_model, key_id, exc
+                )
+                continue
 
         fallback_attempts += 1
         continue

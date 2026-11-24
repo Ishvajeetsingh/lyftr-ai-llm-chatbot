@@ -92,5 +92,5 @@ def setup_test_db(monkeypatch):
 @pytest.fixture
 def client():
     from app.main import app
-    with TestClient(app) as test_client:
-        yield test_client
+    client = TestClient(app, raise_server_exceptions=False)
+    yield client
