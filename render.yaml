@@ -14,7 +14,7 @@ services:
       - key: LLM_API_KEYS
         sync: false
       - key: ALLOWED_ORIGINS
-        value: "*"
+        value: "https://lyftr-chat-frontend.vercel.app,https://lyftr-chat-frontend-1n39xjg3c-ishvajeetsingh.vercel.app,http://localhost:3000,http://127.0.0.1:3000"
       - key: DEFAULT_SYSTEM_PROMPT
         value: "You are a helpful AI assistant."
       - key: LITELLM_LOCAL_MODEL_COST_MAP

@@ -115,104 +115,104 @@ def execute_chat(
                 fallback_attempts += 1
                 continue
 
-        # 2. Attempt real LiteLLM call
-        try:
-            call_start = time.perf_counter()
-            response = litellm.completion(
-                model=model,
-                messages=messages,
-                api_key=key,
-                timeout=15,
-                caching=True,
-            )
+        # 2. Attempt real LiteLLM call with intelligent model fallback for deprecated/congested models
+        candidate_models = [model]
+        if "gemini" in model:
+            for fallback_m in ["gemini/gemini-flash-lite-latest", "gemini/gemini-3.8-flash"]:
+                if fallback_m not in candidate_models:
+                    candidate_models.append(fallback_m)
 
-            # Check if LiteLLM internal cache hit
-            is_litellm_cache = False
-            hidden_params = getattr(response, "_hidden_params", {}) or {}
-            if hidden_params.get("cache_hit") is True:
-                is_litellm_cache = True
-            elif getattr(response, "cache_hit", False) is True:
-                is_litellm_cache = True
+        key_succeeded = False
+        for current_model in candidate_models:
+            try:
+                call_start = time.perf_counter()
+                response = litellm.completion(
+                    model=current_model,
+                    messages=messages,
+                    api_key=key,
+                    timeout=15,
+                    caching=True,
+                )
 
-            # Extract reply text
-            reply = ""
-            if hasattr(response, "choices") and response.choices:
-                first_choice = response.choices[0]
-                if hasattr(first_choice, "message"):
-                    reply = getattr(first_choice.message, "content", "") or ""
-                elif isinstance(first_choice, dict):
-                    reply = first_choice.get("message", {}).get("content", "")
-            elif isinstance(response, dict) and "choices" in response:
-                reply = response["choices"][0].get("message", {}).get("content", "")
+                # Check if LiteLLM internal cache hit
+                is_litellm_cache = False
+                hidden_params = getattr(response, "_hidden_params", {}) or {}
+                if hidden_params.get("cache_hit") is True:
+                    is_litellm_cache = True
+                elif getattr(response, "cache_hit", False) is True:
+                    is_litellm_cache = True
 
-            # Extract per-request token usage
-            input_tokens = 0
-            output_tokens = 0
-            usage = getattr(response, "usage", None)
-            if usage:
-                input_tokens = getattr(usage, "prompt_tokens", 0) or 0
-                output_tokens = getattr(usage, "completion_tokens", 0) or 0
-            elif isinstance(response, dict) and "usage" in response:
-                u = response["usage"]
-                input_tokens = u.get("prompt_tokens", 0) or 0
-                output_tokens = u.get("completion_tokens", 0) or 0
+                # Extract reply text
+                reply = ""
+                if hasattr(response, "choices") and response.choices:
+                    first_choice = response.choices[0]
+                    if hasattr(first_choice, "message"):
+                        reply = getattr(first_choice.message, "content", "") or ""
+                    elif isinstance(first_choice, dict):
+                        reply = first_choice.get("message", {}).get("content", "")
+                elif isinstance(response, dict) and "choices" in response:
+                    reply = response["choices"][0].get("message", {}).get("content", "")
 
-            # Fallback estimation if provider returns 0 tokens
-            if input_tokens <= 0:
-                input_tokens = max(1, sum(len(m.get("content", "").split()) for m in messages))
-            if output_tokens <= 0:
-                output_tokens = max(1, len(reply.split()))
+                # Extract per-request token usage
+                input_tokens = 0
+                output_tokens = 0
+                usage = getattr(response, "usage", None)
+                if usage:
+                    input_tokens = getattr(usage, "prompt_tokens", 0) or 0
+                    output_tokens = getattr(usage, "completion_tokens", 0) or 0
+                elif isinstance(response, dict) and "usage" in response:
+                    u = response["usage"]
+                    input_tokens = u.get("prompt_tokens", 0) or 0
+                    output_tokens = u.get("completion_tokens", 0) or 0
 
-            latency_ms = max(1, int((time.perf_counter() - start_time) * 1000))
+                # Fallback estimation if provider returns 0 tokens
+                if input_tokens <= 0:
+                    input_tokens = max(1, sum(len(m.get("content", "").split()) for m in messages))
+                if output_tokens <= 0:
+                    output_tokens = max(1, len(reply.split()))
 
-            if is_litellm_cache:
-                metadata = {
-                    "resolution_source": "LLM_CACHE",
-                    "model": getattr(response, "model", model) or model,
-                    "latency_ms": latency_ms,
+                latency_ms = max(1, int((time.perf_counter() - start_time) * 1000))
+
+                if is_litellm_cache:
+                    metadata = {
+                        "resolution_source": "LLM_CACHE",
+                        "model": model,
+                        "latency_ms": latency_ms,
+                        "input_tokens": input_tokens,
+                        "output_tokens": output_tokens,
+                        "key_id": None,
+                        "fallback_attempts": 0,
+                    }
+                else:
+                    metadata = {
+                        "resolution_source": "LIVE_INFERENCE",
+                        "model": model,
+                        "latency_ms": latency_ms,
+                        "input_tokens": input_tokens,
+                        "output_tokens": output_tokens,
+                        "key_id": key_id,
+                        "fallback_attempts": fallback_attempts,
+                    }
+
+                # Store in local cache for deterministic instant hits
+                _LOCAL_COMPLETION_CACHE[cache_key] = {
+                    "reply": reply,
+                    "model": metadata["model"],
                     "input_tokens": input_tokens,
                     "output_tokens": output_tokens,
-                    "key_id": None,
-                    "fallback_attempts": 0,
-                }
-            else:
-                metadata = {
-                    "resolution_source": "LIVE_INFERENCE",
-                    "model": getattr(response, "model", model) or model,
-                    "latency_ms": latency_ms,
-                    "input_tokens": input_tokens,
-                    "output_tokens": output_tokens,
-                    "key_id": key_id,
-                    "fallback_attempts": fallback_attempts,
                 }
 
-            # Store in local cache for deterministic instant hits
-            _LOCAL_COMPLETION_CACHE[cache_key] = {
-                "reply": reply,
-                "model": metadata["model"],
-                "input_tokens": input_tokens,
-                "output_tokens": output_tokens,
-            }
+                return reply, metadata
 
-            return reply, metadata
+            except Exception as exc:
+                exc_str = str(exc).lower()
+                # If deprecated or capacity issue on this specific model, try next candidate model first
+                if any(phrase in exc_str for phrase in ("no longer available", "not found", "503", "high demand", "temporarily")):
+                    continue
+                break
 
-        except Exception as exc:
-            # Check for 429, timeout, 5xx, or quota errors
-            exc_str = str(exc).lower()
-            status_code = getattr(exc, "status_code", None)
-            is_failover_worthy = False
-
-            if status_code in (429, 500, 502, 503, 504):
-                is_failover_worthy = True
-            elif any(s in exc_str for s in ("429", "rate limit", "quota", "timeout", "500", "502", "503", "unavailable", "server error")):
-                is_failover_worthy = True
-            else:
-                # Any provider communication failure triggers failover to next key
-                is_failover_worthy = True
-
-            logger.warning("Error with key %s (%s): %s", key_id, type(exc).__name__, exc)
-            fallback_attempts += 1
-            continue
+        fallback_attempts += 1
+        continue
 
     # If all keys failed or were simulated as failed
     raise ProviderUnavailableException("all providers unavailable")

@@ -12,7 +12,7 @@ os.environ["DO_NOT_TRACK"] = "1"
 class Settings(BaseSettings):
     LLM_API_KEYS: str = "key_1,key_2"
     DATABASE_URL: str = "sqlite:///./data/app.db"
-    ALLOWED_ORIGINS: str = "http://localhost:3000,http://127.0.0.1:3000"
+    ALLOWED_ORIGINS: str = "http://localhost:3000,http://127.0.0.1:3000,https://lyftr-chat-frontend.vercel.app"
     ENABLE_FAILURE_SIMULATION: bool = True
     LLM_MODEL: str = "gemini/gemini-2.0-flash"
     DEFAULT_SYSTEM_PROMPT: str = "You are a helpful AI assistant."
