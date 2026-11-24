@@ -6,10 +6,10 @@ A production-grade, highly resilient conversational AI chatbot built with FastAP
 
 ## 1. Live URLs
 
-- **Frontend Application**: `https://lyftr-chat-frontend.vercel.app` (or local `http://localhost:3000`)
-- **Backend API**: `https://lyftr-backend-production.up.railway.app` (or local `http://localhost:8000`)
-- **API Health Check**: `https://lyftr-backend-production.up.railway.app/health`
-- **GitHub Repository**: `https://github.com/ishvajeet/lyftr-ai-llm-chatbot`
+- **Frontend Application**: https://lyftr-chat-frontend.vercel.app
+- **Backend API**: https://lyftr-backend-1euu.onrender.com
+- **API Health Check**: https://lyftr-backend-1euu.onrender.com/health
+- **GitHub Repository**: https://github.com/Ishvajeetsingh/lyftr-ai-llm-chatbot
 
 ---
 
@@ -116,7 +116,7 @@ The frontend will run on [http://localhost:3000](http://localhost:3000) and conn
 
 ### 1. Verify Health Endpoint
 ```bash
-curl -X GET "http://localhost:8000/health"
+curl -X GET "https://lyftr-backend-1euu.onrender.com/health"
 ```
 **Expected Response (200 OK)**:
 ```json
@@ -129,7 +129,7 @@ curl -X GET "http://localhost:8000/health"
 
 ### 2. Live Inference (Cache Miss)
 ```bash
-curl -X POST "http://localhost:8000/chat" \
+curl -X POST "https://lyftr-backend-1euu.onrender.com/chat" \
   -H "Content-Type: application/json" \
   -d '{"session_id": "test-session-1", "message": "What is the capital of France?", "system_prompt": "You are a concise assistant."}'
 ```
@@ -140,7 +140,7 @@ curl -X POST "http://localhost:8000/chat" \
 
 ### 3. Cache Hit (Identical Prompt in New Session)
 ```bash
-curl -X POST "http://localhost:8000/chat" \
+curl -X POST "https://lyftr-backend-1euu.onrender.com/chat" \
   -H "Content-Type: application/json" \
   -d '{"session_id": "test-session-2", "message": "What is the capital of France?", "system_prompt": "You are a concise assistant."}'
 ```
@@ -152,7 +152,7 @@ curl -X POST "http://localhost:8000/chat" \
 
 ### 4. Simulating Key 1 Failure (Failover to Key 2)
 ```bash
-curl -X POST "http://localhost:8000/chat" \
+curl -X POST "https://lyftr-backend-1euu.onrender.com/chat" \
   -H "Content-Type: application/json" \
   -H "X-Simulate-Failure: key_1=429" \
   -d '{"session_id": "test-session-3", "message": "Explain gravity in five words"}'
@@ -164,7 +164,7 @@ curl -X POST "http://localhost:8000/chat" \
 
 ### 5. Simulating Total Provider Outage (HTTP 503)
 ```bash
-curl -X POST "http://localhost:8000/chat" \
+curl -X POST "https://lyftr-backend-1euu.onrender.com/chat" \
   -H "Content-Type: application/json" \
   -H "X-Simulate-Failure: *=429" \
   -d '{"session_id": "test-session-4", "message": "This request must fail"}'
@@ -177,7 +177,7 @@ curl -X POST "http://localhost:8000/chat" \
 ```
 Verify no database record was created:
 ```bash
-curl -X GET "http://localhost:8000/sessions/test-session-4/messages"
+curl -X GET "https://lyftr-backend-1euu.onrender.com/sessions/test-session-4/messages"
 # Returns: 404 {"detail": "session not found"}
 ```
 
